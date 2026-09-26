@@ -1,0 +1,18 @@
+{
+    "yaml.completion": true,
+
+    "yaml.schemas": {
+        "kubernetes": [
+            "config/**/*.yaml",
+            "config/**/*.yml"
+        ]
+    },
+
+    "editor.quickSuggestions": {
+        "other": true,
+        "comments": false,
+        "strings": true
+    },
+
+    "editor.suggestOnTriggerCharacters": true
+}
