@@ -1,0 +1,10 @@
+apiVersion: cloud.leo.io/v1alpha1
+kind: SimpleApp
+
+metadata:
+  name: my-app
+  namespace: default
+
+spec:
+  replicas: 3
+  image: nginx:lastest

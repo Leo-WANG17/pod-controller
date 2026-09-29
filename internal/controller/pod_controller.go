@@ -47,6 +47,10 @@ func (r *PodReconciler) Reconcile(
 
 func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		// For is in order to identify the Primary Resource of this controller
+		// In this case, the Primary Resource is Pod
+		// The working flow is when Pod changes -> enqueue -> Request -> Reconcile
+		// Request is generally the Key of Primary Resource
 		For(&corev1.Pod{}).
 		Complete(r)
 }

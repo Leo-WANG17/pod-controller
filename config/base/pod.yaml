@@ -1,4 +1,4 @@
-apiVersion: v1
+apiVersion: apps/v1
 kind: Deployment
 
 metadata:
@@ -23,7 +23,7 @@ spec:
           image: redis:latest
           resources:
             requests:
-              cpu: 250m
+              cpu: 500m
               memory: 128Mi
 
       nodeSelector:
