@@ -19,9 +19,21 @@ type SimpleApp struct {
 	Spec SimpleAppSpec `json:"spec,omitempty"`
 }
 
-func (s SimpleApp) DeepCopyObject() runtime.Object {
-	//TODO implement me
-	panic("implement me")
+func (s *SimpleApp) DeepCopyObject() runtime.Object {
+	if s == nil {
+		return nil
+	}
+
+	out := new(SimpleApp)
+	*out = *s
+	s.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+
+	return out
+}
+
+func (in *SimpleApp) DeepCopyInto(out *SimpleApp) {
+	*out = *in
+	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 }
 
 // SimpleAppList Multiple resources of SimpleApp
@@ -32,7 +44,29 @@ type SimpleAppList struct {
 	Items []SimpleApp `json:"items"`
 }
 
-func (s SimpleAppList) DeepCopyObject() runtime.Object {
-	//TODO implement me
-	panic("implement me")
+func (in *SimpleAppList) DeepCopyInto(out *SimpleAppList) {
+	*out = *in
+
+	if in.Items != nil {
+		out.Items = make([]SimpleApp, len(in.Items))
+
+		for i := range in.Items {
+			in.Items[i].DeepCopyInto(&out.Items[i])
+		}
+	}
+}
+
+func (in *SimpleAppList) DeepCopy() *SimpleAppList {
+	if in == nil {
+		return nil
+	}
+
+	out := new(SimpleAppList)
+	in.DeepCopyInto(out)
+
+	return out
+}
+
+func (s *SimpleAppList) DeepCopyObject() runtime.Object {
+
 }
