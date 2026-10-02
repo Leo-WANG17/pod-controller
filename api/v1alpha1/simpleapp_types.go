@@ -44,6 +44,7 @@ type SimpleAppList struct {
 	Items []SimpleApp `json:"items"`
 }
 
+// DeepCopyInto To handle every element of slice SimpleApp into SimpleAppList slice
 func (in *SimpleAppList) DeepCopyInto(out *SimpleAppList) {
 	*out = *in
 
@@ -56,6 +57,7 @@ func (in *SimpleAppList) DeepCopyInto(out *SimpleAppList) {
 	}
 }
 
+// DeepCopy Handle the deep copy process, by calling the func
 func (in *SimpleAppList) DeepCopy() *SimpleAppList {
 	if in == nil {
 		return nil
@@ -65,8 +67,4 @@ func (in *SimpleAppList) DeepCopy() *SimpleAppList {
 	in.DeepCopyInto(out)
 
 	return out
-}
-
-func (s *SimpleAppList) DeepCopyObject() runtime.Object {
-
 }
