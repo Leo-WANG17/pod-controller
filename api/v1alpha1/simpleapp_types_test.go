@@ -6,6 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Unit Test 1 -- SimpleApp.DeepCopy()
 func TestSimpleAppDeepCopy(t *testing.T) {
 	// Created a test object Simpleapp
 	original := &SimpleApp{
@@ -17,7 +18,7 @@ func TestSimpleAppDeepCopy(t *testing.T) {
 		},
 		Spec: SimpleAppSpec{
 			Replicas: 3,
-			Image:    "nginx-latest",
+			Image:    "nginx:latest",
 		},
 	}
 
@@ -40,5 +41,76 @@ func TestSimpleAppDeepCopy(t *testing.T) {
 	// Check 3: original.Spec.Replicas is still 3 or changed
 	if original.Spec.Replicas != 3 {
 		t.Errorf("original Spec changed unexpectedly: %d", original.Spec.Replicas)
+	}
+}
+
+// Unit Test 2 -- SimpleAppList.DeepCopy()
+func TestSimpleAppListDeepCopy(t *testing.T) {
+	original := &SimpleAppList{
+		Items: []SimpleApp{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "app-1",
+					Labels: map[string]string{
+						"env": "production",
+					},
+				},
+				Spec: SimpleAppSpec{
+					Replicas: 3,
+					Image:    "nginx:latest",
+				},
+			},
+		},
+	}
+
+	copied := original.DeepCopy()
+
+	copied.Items[0].Name = "app-2"
+	copied.Items[0].Labels["env"] = "development"
+	copied.Items[0].Spec.Replicas = 5
+
+	copied.Items = append(copied.Items, SimpleApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "app-3",
+			Labels: map[string]string{
+				"env": "testing",
+			},
+		},
+		Spec: SimpleAppSpec{
+			Replicas: 2,
+			Image:    "redis:latest",
+		},
+	})
+
+	// Confirm original.Items[0].Name = "app-1"
+	if original.Items[0].Name != "app-1" {
+		t.Errorf("original Name changed unexpectedly: %s", original.Items[0].Name)
+	}
+	// Confirm original.Items[0].Labels["env"] = "production"
+	if original.Items[0].Labels["env"] != "production" {
+		t.Errorf("original Labels changed unexpectedly: %v", original.Items[0].Labels)
+	}
+	// Confirm original.Items[0].Spec.Replicas = 3
+	if original.Items[0].Spec.Replicas != 3 {
+		t.Errorf("original Spec changed unexpectedly: %d", original.Items[0].Spec.Replicas)
+	}
+	// Confirm the number of element of original.Item will not be changed
+	if len(original.Items) != 1 {
+		t.Errorf("original Items length: got %d, want 1", len(original.Items))
+	}
+
+	if len(copied.Items) != 2 {
+		t.Errorf("copied Items length: got %d, want 2", len(copied.Items))
+	}
+}
+
+// Nil Receiver
+func TestSimpleAppDeepCopyNil(t *testing.T) {
+	var app *SimpleApp
+
+	copied := app.DeepCopy()
+
+	if copied != nil {
+		t.Errorf("expected nil, got %v", copied)
 	}
 }
