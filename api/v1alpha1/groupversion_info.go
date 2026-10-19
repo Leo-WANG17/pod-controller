@@ -15,6 +15,7 @@ var SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
 
 var AddToScheme = SchemeBuilder.AddToScheme
 
+// Scheme register
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(
 		GroupVersion,
