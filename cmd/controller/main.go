@@ -2,16 +2,26 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/Leo-WANG17/pod-controller/internal/controller"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	cloudv1alpha1 "github.com/Leo-WANG17/pod-controller/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func main() {
+	// Initialize Logger
+	// Create Logger of logr.Logger
+	// Setting global Logger for controller-runtime
+	ctrl.SetLogger(zap.New(
+		zap.UseDevMode(true),
+		zap.WriteTo(os.Stdout),
+	))
+
 	// get k8s cluster config, if no, then exit
 	config, err := ctrl.GetConfig()
 	if err != nil {
