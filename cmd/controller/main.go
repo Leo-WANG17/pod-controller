@@ -62,6 +62,7 @@ func main() {
 
 	simpleAppReconciler := &controller.SimpleAppReconciler{
 		Client: k8sClient,
+		Scheme: mgr.GetScheme(),
 	}
 	// Register PodReconciler with Manager
 	if err := podReconciler.SetupWithManager(mgr); err != nil {
