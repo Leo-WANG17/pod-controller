@@ -57,18 +57,22 @@ func TestDesiredDeployment(t *testing.T) {
 	}
 
 	// Assertion 4: check Selector Lable
-	if testDeployment.Spec.Selector.MatchLabels["app"] != "test" {
+	if testDeployment.Spec.Selector == nil {
+		t.Fatal("Deployment selector must not be nil")
+	}
+
+	if got := testDeployment.Spec.Selector.MatchLabels["app"]; got != "test" {
 		t.Errorf("Deployment selector: got %q, expected %q",
-			testDeployment.Spec.Selector.MatchLabels,
-			"app",
+			got,
+			"test",
 		)
 	}
 
 	// Assertion 5: check Pod Template Label
-	if testDeployment.Spec.Template.Labels["env"] != "test" {
+	if got := testDeployment.Spec.Template.Labels["app"]; got != "test" {
 		t.Errorf("Deployment template: got %q, expected %q",
-			testDeployment.Spec.Template.Labels,
-			"env",
+			got,
+			"test",
 		)
 	}
 
@@ -78,9 +82,31 @@ func TestDesiredDeployment(t *testing.T) {
 	}
 
 	// Assertion 7: check the image of Container
-	if testDeployment.Spec.Template.Spec.Containers[0].Image != "nginx:latest" {
-		t.Fatal("Expected container image: ",
-			testDeployment.Spec.Template.Spec.Containers[0].Image,
+	if got := testDeployment.Spec.Template.Spec.Containers[0].Image; got != "nginx:latest" {
+		t.Errorf("Container image: got %q, want %q",
+			got,
+			"nginx:latest",
+		)
+	}
+
+	// Test: independency of ptr Replicas
+	// Modify Deployment
+	*testDeployment.Spec.Replicas = 5
+
+	// Check Deployment
+	if *testDeployment.Spec.Replicas != 5 {
+		t.Errorf("Deployment replicas: got %d, expected %d",
+			*testDeployment.Spec.Replicas,
+			5,
+		)
+	}
+
+	// Check original SimpleApp
+	if test.Spec.Replicas != 3 {
+		t.Errorf(
+			"Deployment replicas: got %d, expected %d",
+			test.Spec.Replicas,
+			3,
 		)
 	}
 }

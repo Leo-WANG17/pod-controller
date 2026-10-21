@@ -59,7 +59,7 @@ func (r *SimpleAppReconciler) Reconcile(
 	return ctrl.Result{}, nil
 }
 
-// describedDeployment Deployment controller
+// describedDeployment Deployment constructor
 func describedDeployment(app *cloudv1alpha1.SimpleApp) *appsv1.Deployment {
 	replicas := app.Spec.Replicas
 
