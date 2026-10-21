@@ -7,4 +7,4 @@ metadata:
 
 spec:
   replicas: 3
-  image: nginx:lastest
+  image: nginx:latest
