@@ -232,5 +232,6 @@ func describedDeployment(app *cloudv1alpha1.SimpleApp) *appsv1.Deployment {
 func (r *SimpleAppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cloudv1alpha1.SimpleApp{}).
+		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }
