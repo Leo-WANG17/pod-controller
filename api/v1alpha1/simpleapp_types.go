@@ -16,7 +16,14 @@ type SimpleApp struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec SimpleAppSpec `json:"spec,omitempty"`
+	Spec   SimpleAppSpec   `json:"spec,omitempty"`
+	Status SimpleAppStatus `json:"status,omitempty"`
+}
+
+// SimpleAppStatus this field will maintain the status and version of SimpleApp
+type SimpleAppStatus struct {
+	ReadyReplicas      int32 `json:"readyReplicas,omitempty"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 func (in *SimpleApp) DeepCopyObject() runtime.Object {

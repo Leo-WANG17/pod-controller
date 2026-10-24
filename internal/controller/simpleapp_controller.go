@@ -189,6 +189,49 @@ func (r *SimpleAppReconciler) Reconcile(
 		)
 	}
 
+	// This section will handle sub-resources
+	if existing.Status.ObservedGeneration < existing.Generation {
+		logger.V(1).Info(
+			"Deployment status is stale",
+			"generation", existing.Generation,
+			"observedGeneration", existing.Status.ObservedGeneration,
+		)
+		return ctrl.Result{}, nil
+	}
+	// Synchronize SimpleApp Status
+	// Read Deployment ReadyReplicas
+	statusChanged := false
+
+	// Compare with app.Status.ReadyReplicas
+	readyReplicas := existing.Status.ReadyReplicas
+
+	if app.Status.ReadyReplicas != readyReplicas {
+		app.Status.ReadyReplicas = readyReplicas
+		statusChanged = true
+	}
+
+	// Compare SimpleApp observed generation with current generation.
+	// If different:
+	//     Update app.Status.ObservedGeneration
+	if app.Status.ObservedGeneration != app.Generation {
+		app.Status.ObservedGeneration = app.Generation
+		statusChanged = true
+	}
+
+	// If different, update app.Status.ReadyReplicas
+	// Call r.Client.Status().Update(ctx, &app)
+	if statusChanged {
+		if err := r.Client.Status().Update(ctx, &app); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		logger.Info(
+			"SimpleApp status updated",
+			"readyReplicas", app.Status.ReadyReplicas,
+			"observedGeneration", app.Status.ObservedGeneration,
+		)
+	}
+
 	return ctrl.Result{}, nil
 }
 
