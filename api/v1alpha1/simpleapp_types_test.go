@@ -22,6 +22,16 @@ func TestSimpleAppDeepCopy(t *testing.T) {
 		},
 	}
 
+	// Add conditions
+	original.Status.Conditions = []metav1.Condition{
+		{
+			Type:    "Ready",
+			Status:  metav1.ConditionTrue,
+			Reason:  "AllReplicasReady",
+			Message: "All replicas are ready",
+		},
+	}
+
 	// Test operation
 	copied := original.DeepCopy()
 	copied.Name = "new-app"
@@ -41,6 +51,19 @@ func TestSimpleAppDeepCopy(t *testing.T) {
 	// Check 3: original.Spec.Replicas is still 3 or changed
 	if original.Spec.Replicas != 3 {
 		t.Errorf("original Spec changed unexpectedly: %d", original.Spec.Replicas)
+	}
+
+	// test conditions
+	// Modify the copied condition
+	copied.Status.Conditions[0].Status = metav1.ConditionFalse
+
+	// Verify the original condition remains unchanged
+	if original.Status.Conditions[0].Status != metav1.ConditionTrue {
+		t.Errorf(
+			"Original condition changed unexpectedly: got %q, want %q",
+			original.Status.Conditions[0].Status,
+			metav1.ConditionTrue,
+		)
 	}
 }
 

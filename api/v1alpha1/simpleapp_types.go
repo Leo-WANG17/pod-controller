@@ -22,8 +22,9 @@ type SimpleApp struct {
 
 // SimpleAppStatus this field will maintain the status and version of SimpleApp
 type SimpleAppStatus struct {
-	ReadyReplicas      int32 `json:"readyReplicas,omitempty"`
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	ReadyReplicas      int32              `json:"readyReplicas,omitempty"`
+	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
+	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 }
 
 func (in *SimpleApp) DeepCopyObject() runtime.Object {
@@ -36,7 +37,19 @@ func (in *SimpleApp) DeepCopyObject() runtime.Object {
 
 func (in *SimpleApp) DeepCopyInto(out *SimpleApp) {
 	*out = *in
+
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+
+	if in.Status.Conditions != nil {
+		out.Status.Conditions = make(
+			[]metav1.Condition,
+			len(in.Status.Conditions))
+
+		for i := range in.Status.Conditions {
+			in.Status.Conditions[i].DeepCopyInto(
+				&out.Status.Conditions[i])
+		}
+	}
 }
 
 func (in *SimpleApp) DeepCopy() *SimpleApp {
