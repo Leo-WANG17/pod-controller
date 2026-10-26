@@ -8,6 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -161,7 +162,7 @@ func (r *SimpleAppReconciler) Reconcile(
 	// to be sure the slice of containers is not 0
 	if len(containers) == 0 {
 		return ctrl.Result{}, fmt.Errorf(
-			"Deployment %s/%s has no containers",
+			"deployment %s/%s has no containers",
 			existing.Namespace,
 			existing.Name,
 		)
@@ -189,25 +190,56 @@ func (r *SimpleAppReconciler) Reconcile(
 		)
 	}
 
-	// This section will handle sub-resources
-	if existing.Status.ObservedGeneration < existing.Generation {
-		logger.V(1).Info(
-			"Deployment status is stale",
-			"generation", existing.Generation,
-			"observedGeneration", existing.Status.ObservedGeneration,
-		)
-		return ctrl.Result{}, nil
-	}
 	// Synchronize SimpleApp Status
 	// Read Deployment ReadyReplicas
 	statusChanged := false
+	var condition metav1.Condition
 
-	// Compare with app.Status.ReadyReplicas
-	readyReplicas := existing.Status.ReadyReplicas
+	// Check whether Deployment Status is stale
+	if existing.Status.ObservedGeneration < existing.Generation {
+		// Build Ready=Unknown condition
+		// Reason: DeploymentStatusStale
+		condition = metav1.Condition{
+			Type:               "Ready",
+			Status:             metav1.ConditionUnknown,
+			Reason:             "DeploymentStatusStale",
+			Message:            "Waiting for Deployment status",
+			ObservedGeneration: app.Generation,
+		}
+	} else {
+		// Synchronize ReadyReplicas
+		readyReplicas := existing.Status.ReadyReplicas
 
-	if app.Status.ReadyReplicas != readyReplicas {
-		app.Status.ReadyReplicas = readyReplicas
-		statusChanged = true
+		if app.Status.ReadyReplicas != readyReplicas {
+			app.Status.ReadyReplicas = readyReplicas
+			statusChanged = true
+		}
+
+		// Deployment Status is up to date
+		ready := existing.Status.Replicas == desiredReplicas &&
+			existing.Status.UpdatedReplicas == desiredReplicas &&
+			existing.Status.AvailableReplicas == desiredReplicas &&
+			existing.Status.ReadyReplicas == desiredReplicas
+
+		// Build Ready=True condition
+		if ready {
+			condition = metav1.Condition{
+				Type:               "Ready",
+				Status:             metav1.ConditionTrue,
+				Reason:             "AllReplicasReady",
+				Message:            "All desired replicas are available",
+				ObservedGeneration: app.Generation,
+			}
+		} else {
+			// Build Ready=False condition
+			condition = metav1.Condition{
+				Type:               "Ready",
+				Status:             metav1.ConditionFalse,
+				Reason:             "ReplicasNotReady",
+				Message:            "Waiting for desired replicas to become ready",
+				ObservedGeneration: app.Generation,
+			}
+		}
 	}
 
 	// Compare SimpleApp observed generation with current generation.
@@ -215,6 +247,10 @@ func (r *SimpleAppReconciler) Reconcile(
 	//     Update app.Status.ObservedGeneration
 	if app.Status.ObservedGeneration != app.Generation {
 		app.Status.ObservedGeneration = app.Generation
+		statusChanged = true
+	}
+
+	if meta.SetStatusCondition(&app.Status.Conditions, condition) {
 		statusChanged = true
 	}
 
@@ -229,6 +265,8 @@ func (r *SimpleAppReconciler) Reconcile(
 			"SimpleApp status updated",
 			"readyReplicas", app.Status.ReadyReplicas,
 			"observedGeneration", app.Status.ObservedGeneration,
+			"readyCondition", condition.Status,
+			"reason", condition.Reason,
 		)
 	}
 
