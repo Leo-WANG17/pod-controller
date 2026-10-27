@@ -309,3 +309,45 @@ func TestReconcileRejectsForeignDeployment(t *testing.T) {
 
 	// TODO 9: Verify that its spec was not modified.
 }
+
+// test Ready Condition
+func isDeploymentReady(
+	deployment *appsv1.Deployment,
+	desiredReplicas int32,
+) bool {
+	return deployment.Status.ReadyReplicas == desiredReplicas &&
+		deployment.Status.Replicas == desiredReplicas &&
+		deployment.Status.AvailableReplicas == desiredReplicas &&
+		deployment.Status.UpdatedReplicas == desiredReplicas
+}
+
+func TestIsDeploymentReady(t *testing.T) {
+	// Expected replicas: 3
+	// Set all Status replica fields to 3
+	deployment := &appsv1.Deployment{
+		Status: appsv1.DeploymentStatus{
+			Replicas:          3,
+			UpdatedReplicas:   3,
+			ReadyReplicas:     3,
+			AvailableReplicas: 3,
+		},
+	}
+
+	// Call isDeploymentReady()
+	// Expect true
+	verify := isDeploymentReady(deployment, 3)
+
+	if !verify {
+		t.Errorf("Deployment is not ready")
+	}
+	// Change UpdatedReplicas to 2
+	deployment.Status.UpdatedReplicas = 2
+
+	// Call isDeploymentReady() again
+	// Expect false
+	verify = isDeploymentReady(deployment, 3)
+	if verify {
+		t.Errorf("Expected Deployment not to be ready")
+	}
+
+}
