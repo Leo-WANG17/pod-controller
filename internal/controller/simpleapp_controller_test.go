@@ -350,4 +350,84 @@ func TestIsDeploymentReady(t *testing.T) {
 		t.Errorf("Expected Deployment not to be ready")
 	}
 
+	// Case 3: Desired replicas exceed current replicas
+	// Deployment status fields are all 3
+	deployment.Status.UpdatedReplicas = 3
+	// Call isDeploymentReady(deployment, 5)
+	// Expected result: false
+	verify = isDeploymentReady(deployment, 5)
+	if verify {
+		t.Errorf("Expected Deployment not to be ready")
+	}
+
+	// Table-Driven Tests
+	tests := []struct {
+		name            string
+		deployment      appsv1.DeploymentStatus
+		desiredReplicas int32
+		want            bool
+	}{
+		{
+			name: "AllReady",
+			deployment: appsv1.DeploymentStatus{
+				Replicas:          3,
+				UpdatedReplicas:   3,
+				ReadyReplicas:     3,
+				AvailableReplicas: 3,
+			},
+			desiredReplicas: 3,
+			want:            true,
+		},
+		{
+			name: "UpdatedReplicas",
+			deployment: appsv1.DeploymentStatus{
+				Replicas:          3,
+				UpdatedReplicas:   2,
+				ReadyReplicas:     3,
+				AvailableReplicas: 3,
+			},
+			desiredReplicas: 3,
+			want:            false,
+		},
+		{
+			name: "DesiredReplicas",
+			deployment: appsv1.DeploymentStatus{
+				Replicas:          3,
+				UpdatedReplicas:   3,
+				ReadyReplicas:     3,
+				AvailableReplicas: 3,
+			},
+			desiredReplicas: 5,
+			want:            false,
+		},
+		{
+			name: "NotAvailable",
+			deployment: appsv1.DeploymentStatus{
+				Replicas:          3,
+				UpdatedReplicas:   3,
+				ReadyReplicas:     3,
+				AvailableReplicas: 2,
+			},
+			desiredReplicas: 3,
+			want:            false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deployment := &appsv1.Deployment{
+				Status: tt.deployment,
+			}
+
+			got := isDeploymentReady(deployment, tt.desiredReplicas)
+
+			if got != tt.want {
+				t.Errorf(
+					"isDeploymentReady() = %v, want %v",
+					got,
+					tt.want,
+				)
+			}
+		})
+	}
 }
