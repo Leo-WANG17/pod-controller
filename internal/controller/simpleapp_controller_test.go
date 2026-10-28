@@ -6,12 +6,14 @@ import (
 
 	cloudv1alpha1 "github.com/Leo-WANG17/pod-controller/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func TestDesiredDeployment(t *testing.T) {
@@ -427,6 +429,205 @@ func TestIsDeploymentReady(t *testing.T) {
 					got,
 					tt.want,
 				)
+			}
+		})
+	}
+}
+
+// Test case for complete Ready Condition
+func TestReconcileReadyCondition(t *testing.T) {
+	// Reconcile Status Integration-style Test
+	tests := []struct {
+		name                 string
+		deploymentStatus     appsv1.DeploymentStatus
+		wantCondition        metav1.ConditionStatus
+		wantReason           string
+		initialReadyReplicas int32
+		wantReadyReplicas    int32
+	}{
+		// AllReady
+		{
+			name: "AllReady",
+			deploymentStatus: appsv1.DeploymentStatus{
+				ObservedGeneration: 2,
+				Replicas:           3,
+				UpdatedReplicas:    3,
+				ReadyReplicas:      3,
+				AvailableReplicas:  3,
+			},
+			wantCondition:        metav1.ConditionTrue,
+			wantReason:           "AllReplicasReady",
+			initialReadyReplicas: 0,
+			wantReadyReplicas:    3,
+		},
+		// ReplicasNotReady
+		{
+			name: "ReplicasNotReady",
+			deploymentStatus: appsv1.DeploymentStatus{
+				ObservedGeneration: 2,
+				Replicas:           3,
+				UpdatedReplicas:    2,
+				ReadyReplicas:      3,
+				AvailableReplicas:  3,
+			},
+			wantCondition:        metav1.ConditionFalse,
+			wantReason:           "ReplicasNotReady",
+			initialReadyReplicas: 0,
+			wantReadyReplicas:    3,
+		},
+		// DeploymentStatusStale
+		{
+			name: "DeploymentStatusStale",
+			deploymentStatus: appsv1.DeploymentStatus{
+				ObservedGeneration: 1,
+				Replicas:           3,
+				UpdatedReplicas:    3,
+				ReadyReplicas:      3,
+				AvailableReplicas:  3,
+			},
+			wantCondition:        metav1.ConditionFalse,
+			wantReason:           "DeploymentStatusStale",
+			initialReadyReplicas: 1,
+			wantReadyReplicas:    1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Prepare Scheme
+			scheme := runtime.NewScheme()
+
+			if err := clientgoscheme.AddToScheme(scheme); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := cloudv1alpha1.AddToScheme(scheme); err != nil {
+				t.Fatal(err)
+			}
+
+			// Create a SimpleApp
+			app := &cloudv1alpha1.SimpleApp{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-app",
+					Namespace:  "default",
+					UID:        types.UID("test-uid-123"),
+					Generation: 1,
+				},
+				Spec: cloudv1alpha1.SimpleAppSpec{
+					Replicas: 3,
+					Image:    "nginx:latest",
+				},
+			}
+
+			// Create an existing Deployment
+			deployment := describedDeployment(app)
+
+			// Set correct OwnerReference
+			if err := controllerutil.SetControllerReference(
+				app,
+				deployment,
+				scheme,
+			); err != nil {
+				t.Fatal(err)
+			}
+
+			// Set Deployment Status
+			// All replicas ready
+			deployment.Generation = 2
+
+			deployment.Status = appsv1.DeploymentStatus{
+				ObservedGeneration: 2,
+				Replicas:           3,
+				UpdatedReplicas:    3,
+				ReadyReplicas:      3,
+				AvailableReplicas:  3,
+			}
+
+			// TODO 5: Build Fake Client
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(app, deployment).
+				WithStatusSubresource(app, deployment).
+				Build()
+
+			// Ensure Deployment Spec matches SimpleApp Spec
+			owner := metav1.GetControllerOf(deployment)
+
+			if owner == nil {
+				t.Fatal("Deployment has no controller OwnerReference")
+			}
+
+			if owner.UID != app.UID {
+				t.Errorf(
+					"Deployment owner UID = %s, want %s",
+					owner.UID,
+					app.UID,
+				)
+			}
+
+			// Create SimpleAppReconciler
+			reconciler := &SimpleAppReconciler{
+				Client: fakeClient,
+				Scheme: scheme,
+			}
+
+			// Call Reconcile()
+			// Update SimpleApp
+			result, err := reconciler.Reconcile(
+				context.Background(),
+				ctrl.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: "default",
+						Name:      "test-app",
+					},
+				},
+			)
+			if err != nil {
+				t.Fatalf("Reconcile failed: %v", err)
+			}
+
+			if result != (ctrl.Result{}) {
+				t.Errorf("Unexpected reconcile result: %+v", result)
+			}
+
+			// Get updated simpleapp
+			var updatedApp cloudv1alpha1.SimpleApp
+
+			if err := fakeClient.Get(
+				context.Background(),
+				types.NamespacedName{
+					Name:      "test-app",
+					Namespace: "default",
+				},
+				&updatedApp,
+			); err != nil {
+				t.Fatal(err)
+			}
+
+			// Assert Ready Condition is True
+			condition := meta.FindStatusCondition(
+				updatedApp.Status.Conditions,
+				"Ready",
+			)
+
+			if condition == nil {
+				t.Fatal("No ready condition")
+			}
+
+			if condition.Status != metav1.ConditionTrue {
+				t.Errorf("Unexpected condition status: %v", condition.Status)
+			}
+
+			if condition.Reason != "AllReplicasReady" {
+				t.Errorf("Unexpected condition reason: %v", condition.Reason)
+			}
+
+			if updatedApp.Status.ReadyReplicas != 3 {
+				t.Errorf("Unexpected ready replicas: %v", updatedApp.Status.ReadyReplicas)
+			}
+
+			if updatedApp.Status.ObservedGeneration != updatedApp.Generation {
+				t.Errorf("Unexpected observed generation: %v", updatedApp.Status.ObservedGeneration)
 			}
 		})
 	}
