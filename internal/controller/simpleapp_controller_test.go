@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -257,59 +258,262 @@ func TestReconcileCreateDeployment(t *testing.T) {
 	}
 }
 
-// TODO: Test Deployment update reconciliation.
+// Test Deployment update reconciliation.
 // Verify that Reconcile updates an existing Deployment
 // when its replicas or image differ from the SimpleApp spec.
 func TestReconcileUpdatesDeployment(t *testing.T) {
-	// TODO 1: Initialize Scheme.
+	// Initialize Scheme.
+	scheme := runtime.NewScheme()
 
-	// TODO 2: Create a SimpleApp.
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cloudv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	// Create a SimpleApp.
 	// Expected replicas: 3
 	// Expected image: nginx:latest
+	app := &cloudv1alpha1.SimpleApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "default",
+			UID:       types.UID("test-uid-123"),
+		},
+		Spec: cloudv1alpha1.SimpleAppSpec{
+			Replicas: 3,
+			Image:    "nginx:latest",
+		},
+	}
 
-	// TODO 3: Create an existing Deployment.
+	// Create an existing Deployment.
 	// Actual replicas: 5
 	// Actual image: nginx:lastest
+	deployment := describedDeployment(app)
+	deployment.Spec.Replicas = ptr.To(int32(5))
+	deployment.Spec.Template.Spec.Containers[0].Image = "redis:latest"
 
-	// TODO 4: Set Controller OwnerReference.
+	// Set Controller OwnerReference.
+	if err := controllerutil.SetControllerReference(
+		app,
+		deployment,
+		scheme,
+	); err != nil {
+		t.Fatal(err)
+	}
 
-	// TODO 5: Initialize Fake Client with both objects.
+	// Initialize Fake Client with both objects.
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(app, deployment).
+		WithStatusSubresource(app, deployment).
+		Build()
 
-	// TODO 6: Initialize SimpleAppReconciler.
+	// Initialize SimpleAppReconciler.
+	reconcile := &SimpleAppReconciler{
+		Client: fakeClient,
+		Scheme: scheme,
+	}
 
-	// TODO 7: Call Reconcile().
+	// Call Reconcile().
+	if _, err := reconcile.Reconcile(
+		context.Background(),
+		ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "default",
+				Name:      "test-app",
+			},
+		},
+	); err != nil {
+		t.Fatal("Reconcile failed")
+	}
 
-	// TODO 8: Retrieve the updated Deployment.
+	// Retrieve the updated Deployment.
+	var updatedDeployment appsv1.Deployment
 
-	// TODO 9: Assert replicas == 3 and image == nginx:latest.
+	if err := fakeClient.Get(
+		context.Background(),
+		types.NamespacedName{
+			Namespace: "default",
+			Name:      "test-app",
+		},
+		&updatedDeployment,
+	); err != nil {
+		t.Fatal("failed to retrieve deployment")
+	}
 
-	// TODO 10: Verify OwnerReference remains correct.
+	// Assert replicas == 3 and image == nginx:latest.
+	if updatedDeployment.Spec.Replicas == nil {
+		t.Fatal("Deployment.Spec.Replicas is nil")
+	}
 
-	// TODO 11: Call Reconcile() again to test repeated reconciliation.
+	if *updatedDeployment.Spec.Replicas != 3 {
+		t.Errorf(
+			"Deployment replicas = %d, want 3",
+			*updatedDeployment.Spec.Replicas,
+		)
+	}
+
+	if len(updatedDeployment.Spec.Template.Spec.Containers) == 0 {
+		t.Fatal("Deployment has no containers")
+	}
+
+	if updatedDeployment.Spec.Template.Spec.Containers[0].Image != "nginx:latest" {
+		t.Errorf(
+			"Deployment image = %s, want nginx:latest",
+			updatedDeployment.Spec.Template.Spec.Containers[0].Image,
+		)
+	}
+
+	// Verify OwnerReference remains correct.
+	owner := metav1.GetControllerOf(&updatedDeployment)
+
+	if owner == nil {
+		t.Fatal("Deployment has no Controller OwnerReference")
+	}
+
+	if owner.UID != app.UID {
+		t.Errorf(
+			"Deployment owner UID = %s, want %s",
+			owner.UID,
+			app.UID,
+		)
+	}
+
+	// Call Reconcile() again to test repeated reconciliation.
+	resourceVersionBefore := updatedDeployment.ResourceVersion
+	var deploymentAfter appsv1.Deployment
+
+	if err := fakeClient.Get(
+		context.Background(),
+		types.NamespacedName{
+			Namespace: "default",
+			Name:      "test-app",
+		},
+		&deploymentAfter,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if deploymentAfter.ResourceVersion != resourceVersionBefore {
+		t.Errorf(
+			"Deployment was unexpectedly updated during second Reconcile",
+		)
+	}
 }
 
-// TODO: Test ownership protection.
+// Test ownership protection.
 // Verify that Reconcile refuses to modify a Deployment
 // controlled by a different SimpleApp.
 func TestReconcileRejectsForeignDeployment(t *testing.T) {
-	// TODO 1: Initialize Scheme.
+	// Register Scheme
+	scheme := runtime.NewScheme()
 
-	// TODO 2: Create a SimpleApp with UID "owner-a".
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
 
-	// TODO 3: Create an existing Deployment.
-	// Give its controller OwnerReference a different UID: "owner-b".
+	if err := cloudv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
 
-	// TODO 4: Initialize Fake Client with both objects.
+	// Create SimpleApp.
+	// Desired: 3 replicas, nginx:latest.
+	app := &cloudv1alpha1.SimpleApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-app",
+			Namespace:  "default",
+			UID:        types.UID("simpleapp-uid"),
+			Generation: 1,
+		},
+		Spec: cloudv1alpha1.SimpleAppSpec{
+			Replicas: 3,
+			Image:    "nginx:latest",
+		},
+	}
 
-	// TODO 5: Initialize SimpleAppReconciler.
+	// Create an existing Deployment.
+	// Actual: 1 replica, redis:latest.
+	foreignDeployment := describedDeployment(app)
+	foreignDeployment.Spec.Replicas = ptr.To(int32(1))
+	foreignDeployment.Spec.Template.Spec.Containers[0].Image = "redis:latest"
 
-	// TODO 6: Call Reconcile().
+	// Set a FOREIGN Controller OwnerReference.
+	foreignDeployment.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+			Name:       "foreign-owner",
+			UID:        "foreign-uid",
+			Controller: ptr.To(true),
+		},
+	}
 
-	// TODO 7: Assert that Reconcile returns an ownership error.
+	// Create Fake Client with both objects.
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(app, foreignDeployment).
+		WithStatusSubresource(app, foreignDeployment).
+		Build()
 
-	// TODO 8: Retrieve Deployment again.
+	// Create SimpleAppReconciler.
+	reconcile := &SimpleAppReconciler{
+		Client: fakeClient,
+		Scheme: scheme,
+	}
 
-	// TODO 9: Verify that its spec was not modified.
+	// Call Reconcile().
+	// Expect a non-nil error.
+	if _, err := reconcile.Reconcile(
+		context.Background(),
+		ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "default",
+				Name:      "test-app",
+			},
+		},
+	); err == nil {
+		t.Fatal("Expected Reconcile to reject foreign Deployment")
+	}
+
+	// Get Deployment again from Fake Client.
+	var deployment appsv1.Deployment
+
+	if err := fakeClient.Get(
+		context.Background(),
+		types.NamespacedName{
+			Namespace: "default",
+			Name:      "test-app",
+		},
+		&deployment,
+	); err != nil {
+		t.Fatalf("Failed to get deployment: %v", err)
+	}
+
+	// Assert:
+	// Replicas remains 1.
+	if deployment.Spec.Replicas == nil {
+		t.Fatal("Deployment replicas must not be nil")
+	}
+
+	if *deployment.Spec.Replicas != 1 {
+		t.Errorf(
+			"Foreign Deployment replicas changed: got %d, want 1",
+			*deployment.Spec.Replicas,
+		)
+	}
+	// Image remains redis:latest.
+	if len(deployment.Spec.Template.Spec.Containers) == 0 {
+		t.Fatal("Foreign Deployment template containers must not be empty")
+	}
+
+	if deployment.Spec.Template.Spec.Containers[0].Image != "redis:latest" {
+		t.Errorf(
+			"Foreign Deployment image changed: got %s, want redis:latest",
+			deployment.Spec.Template.Spec.Containers[0].Image,
+		)
+	}
 }
 
 // test Ready Condition
@@ -543,7 +747,7 @@ func TestReconcileReadyCondition(t *testing.T) {
 				AvailableReplicas:  3,
 			}
 
-			// TODO 5: Build Fake Client
+			// Build Fake Client
 			fakeClient := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithObjects(app, deployment).
