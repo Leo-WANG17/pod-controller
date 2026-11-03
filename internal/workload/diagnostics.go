@@ -18,18 +18,35 @@ func DiagnosePod(pod *corev1.Pod) []PodDiagnosis {
 
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 
-		// TODO 1:
 		// Check whether containerStatus.State.Waiting is nil.
+		if containerStatus.State.Waiting == nil {
+			continue
+		}
 
-		// TODO 2:
 		// Get Waiting.Reason and Waiting.Message.
+		reason := containerStatus.State.Waiting.Reason
+		message := containerStatus.State.Waiting.Message
 
-		// TODO 3:
 		// If Reason is ImagePullBackOff or CrashLoopBackOff,
 		// append a PodDiagnosis.
-
-		// TODO 4:
 		// Preserve PodName and ContainerName.
+		switch reason {
+		case "ImagePullBackOff":
+			diagnoses = append(diagnoses, PodDiagnosis{
+				PodName:       pod.Name,
+				ContainerName: containerStatus.Name,
+				Reason:        reason,
+				Message:       message,
+			})
+		case "CrashLoopBackOff":
+			diagnoses = append(diagnoses, PodDiagnosis{
+				PodName:       pod.Name,
+				ContainerName: containerStatus.Name,
+				Reason:        reason,
+				Message:       message,
+			})
+		}
+
 	}
 
 	return diagnoses
