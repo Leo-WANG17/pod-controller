@@ -44,27 +44,56 @@ func TestDiagnosePodMultipleContainers(t *testing.T) {
 
 	// Verify that exactly 2 diagnoses were returned.
 	if len(diagnoses) != 2 {
-		t.Fatalf(
-			"expected 2 diagnoses, got %d",
-			len(diagnoses),
-		)
+		t.Fatalf("expected 2 diagnoses, got %d", len(diagnoses))
 	}
+
+	foundWorker := false
+	foundSidecar := false
 
 	// Verify worker has CrashLoopBackOff.
 	for _, diagnosis := range diagnoses {
-		if diagnosis.ContainerName == "worker" {
-			if diagnosis.Reason != "CrashLoopBackOff" {
-				t.Errorf("expected reason is CrashLoopBackOff, got %s", diagnosis.Reason)
-			}
-			// Verify sidecar has ImagePullBackOff.
-		} else if diagnosis.ContainerName == "sidecar" {
-			if diagnosis.Reason != "ImagePullBackOff" {
-				t.Errorf("expected reason is ImagePullBackOff, got %s", diagnosis.Reason)
-			}
-			// Verify backend has no diagnosis.
-		} else if diagnosis.ContainerName == "backend" {
-			t.Errorf("%s has no diagnosis", diagnosis.ContainerName)
+		if diagnosis.PodName != "my-app-test" {
+			t.Errorf(
+				"expected PodName my-app-test, got %s",
+				diagnosis.PodName,
+			)
 		}
+
+		switch diagnosis.ContainerName {
+		case "worker":
+			foundWorker = true
+
+			if diagnosis.Reason != "CrashLoopBackOff" {
+				t.Errorf(
+					"worker: expected CrashLoopBackOff, got %s",
+					diagnosis.Reason,
+				)
+			}
+
+		case "sidecar":
+			foundSidecar = true
+
+			if diagnosis.Reason != "ImagePullBackOff" {
+				t.Errorf(
+					"sidecar: expected ImagePullBackOff, got %s",
+					diagnosis.Reason,
+				)
+			}
+
+		default:
+			t.Errorf(
+				"unexpected diagnosis for container %s",
+				diagnosis.ContainerName,
+			)
+		}
+	}
+
+	if !foundWorker {
+		t.Error("expected diagnosis for worker")
+	}
+
+	if !foundSidecar {
+		t.Error("expected diagnosis for sidecar")
 	}
 
 }
