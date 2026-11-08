@@ -20,10 +20,13 @@ func DiagnosePod(pod *corev1.Pod) []PodDiagnosis {
 
 	// Inspect Pod scheduling conditions.
 	for _, containerStatus := range pod.Status.ContainerStatuses {
-		// TODO 1:
 		// Check whether this is a PodScheduled condition.
+		condition := pod.Status.Conditions[0]
 
-		// TODO 2:
+		if condition.Type != corev1.PodScheduled {
+			continue
+		}
+		
 		// Verify Status == ConditionFalse.
 
 		// TODO 3:
