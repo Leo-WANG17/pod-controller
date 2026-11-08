@@ -1,6 +1,8 @@
 package workload
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+)
 
 type PodDiagnosis struct {
 	PodName       string
@@ -16,7 +18,23 @@ func DiagnosePod(pod *corev1.Pod) []PodDiagnosis {
 
 	var diagnoses []PodDiagnosis
 
+	// Inspect Pod scheduling conditions.
 	for _, containerStatus := range pod.Status.ContainerStatuses {
+		// TODO 1:
+		// Check whether this is a PodScheduled condition.
+
+		// TODO 2:
+		// Verify Status == ConditionFalse.
+
+		// TODO 3:
+		// Verify Reason == PodReasonUnschedulable.
+
+		// TODO 4:
+		// Append a PodDiagnosis with:
+		// PodName = pod.Name
+		// ContainerName = ""
+		// Reason = condition.Reason
+		// Message = condition.Message
 
 		// Check whether containerStatus.State.Waiting is nil.
 		if containerStatus.State.Waiting == nil {
