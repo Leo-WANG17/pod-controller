@@ -26,7 +26,7 @@ func DiagnosePod(pod *corev1.Pod) []PodDiagnosis {
 		if condition.Type != corev1.PodScheduled {
 			continue
 		}
-		
+
 		// Verify Status == ConditionFalse.
 
 		// TODO 3:
