@@ -21,23 +21,28 @@ func DiagnosePod(pod *corev1.Pod) []PodDiagnosis {
 	// Inspect Pod scheduling conditions.
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 		// Check whether this is a PodScheduled condition.
-		condition := pod.Status.Conditions[0]
+		for _, condition := range pod.Status.Conditions {
+			if condition.Type == corev1.PodScheduled {
+				continue
+			}
 
-		if condition.Type != corev1.PodScheduled {
-			continue
+			// Verify Status == ConditionFalse.
+			// Verify Reason == PodReasonUnschedulable.
+			if condition.Status == corev1.ConditionFalse &&
+				condition.Reason == corev1.PodReasonUnschedulable {
+				// Append a PodDiagnosis with:
+				// PodName = pod.Name
+				// ContainerName = ""
+				// Reason = condition.Reason
+				// Message = condition.Message
+				diagnoses = append(diagnoses, PodDiagnosis{
+					PodName:       pod.Name,
+					ContainerName: "",
+					Reason:        condition.Reason,
+					Message:       condition.Message,
+				})
+			}
 		}
-
-		// Verify Status == ConditionFalse.
-
-		// TODO 3:
-		// Verify Reason == PodReasonUnschedulable.
-
-		// TODO 4:
-		// Append a PodDiagnosis with:
-		// PodName = pod.Name
-		// ContainerName = ""
-		// Reason = condition.Reason
-		// Message = condition.Message
 
 		// Check whether containerStatus.State.Waiting is nil.
 		if containerStatus.State.Waiting == nil {
