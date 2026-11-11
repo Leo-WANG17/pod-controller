@@ -95,5 +95,31 @@ func TestDiagnosePodMultipleContainers(t *testing.T) {
 	if !foundSidecar {
 		t.Error("expected diagnosis for sidecar")
 	}
+}
 
+func TestDiagnosePodUnschedulable(t *testing.T) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pending-pod",
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodPending,
+			Conditions: []corev1.PodCondition{
+				{
+					Type:    corev1.PodScheduled,
+					Status:  corev1.ConditionFalse,
+					Reason:  corev1.PodReasonUnschedulable,
+					Message: "0/1 nodes are available: node affinity mismatch",
+				},
+			},
+		},
+	}
+
+	diagnoses := DiagnosePod(pod)
+
+	// TODO 1: Verify len(diagnoses) == 1
+	// TODO 2: Verify Reason == "Unschedulable"
+	// TODO 3: Verify PodName == "pending-pod"
+	// TODO 4: Verify ContainerName == ""
+	// TODO 5: Verify Message is preserved
 }
