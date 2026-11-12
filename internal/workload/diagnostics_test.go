@@ -117,9 +117,24 @@ func TestDiagnosePodUnschedulable(t *testing.T) {
 
 	diagnoses := DiagnosePod(pod)
 
-	// TODO 1: Verify len(diagnoses) == 1
-	// TODO 2: Verify Reason == "Unschedulable"
-	// TODO 3: Verify PodName == "pending-pod"
-	// TODO 4: Verify ContainerName == ""
-	// TODO 5: Verify Message is preserved
+	// Verify len(diagnoses) == 1
+	if len(diagnoses) != 1 {
+		t.Fatalf("expected 1 diagnosis, got %d", len(diagnoses))
+	}
+	// Verify Reason == "Unschedulable"
+	if diagnoses[0].Reason != corev1.PodReasonUnschedulable {
+		t.Fatalf("expected PodReasonUnschedulable, got %s", diagnoses[0].Reason)
+	}
+	// Verify PodName == "pending-pod"
+	if diagnoses[0].PodName != "pending-pod" {
+		t.Fatalf("expected pending-pod, got %s", diagnoses[0].PodName)
+	}
+	// Verify ContainerName == ""
+	if diagnoses[0].ContainerName != "" {
+		t.Fatalf("expected empty diagnosis, got %s", diagnoses[0].ContainerName)
+	}
+	// Verify Message is preserved
+	if diagnoses[0].Message != "" {
+		t.Fatalf("expected empty diagnosis, got %s", diagnoses[0].Message)
+	}
 }
