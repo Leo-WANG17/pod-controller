@@ -134,7 +134,12 @@ func TestDiagnosePodUnschedulable(t *testing.T) {
 		t.Fatalf("expected empty diagnosis, got %s", diagnoses[0].ContainerName)
 	}
 	// Verify Message is preserved
-	if diagnoses[0].Message != "" {
-		t.Fatalf("expected empty diagnosis, got %s", diagnoses[0].Message)
+	expectedMessage := "0/1 nodes are available: node affinity mismatch"
+
+	if diagnoses[0].Message != expectedMessage {
+		t.Fatalf("expected message %q, got %q",
+			expectedMessage,
+			diagnoses[0].Message,
+		)
 	}
 }
