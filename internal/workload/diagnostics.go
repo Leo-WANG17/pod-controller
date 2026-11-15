@@ -73,6 +73,20 @@ func DiagnosePod(pod *corev1.Pod) []PodDiagnosis {
 			})
 		}
 
+		// Part 3: Readiness Diagnostics
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+
+			// TODO 1:
+			// Verify the container is Running.
+
+			// TODO 2:
+			// Verify containerStatus.Ready == false.
+
+			// TODO 3:
+			// Append a PodDiagnosis:
+			// Reason = "ContainerNotReady".
+		}
+
 	}
 
 	return diagnoses
