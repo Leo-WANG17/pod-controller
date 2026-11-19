@@ -143,3 +143,13 @@ func TestDiagnosePodUnschedulable(t *testing.T) {
 		)
 	}
 }
+
+func TestDiagnosePodReadiness(t *testing.T) {
+	// TODO: Construct Pod with Running container, Ready=false.
+
+	// TODO: Call DiagnosePod().
+
+	// TODO: Verify exactly one diagnosis.
+
+	// TODO: Verify Reason == "ContainerNotReady".
+}
