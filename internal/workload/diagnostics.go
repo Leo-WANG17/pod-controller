@@ -78,12 +78,18 @@ func DiagnosePod(pod *corev1.Pod) []PodDiagnosis {
 
 			// Verify the container is Running.
 			// Verify containerStatus.Ready == false.
-			if containerStatus.State.Running == nil &&
-				containerStatus.Ready != true {
+			if containerStatus.State.Running == nil ||
+				containerStatus.Ready {
 				continue
 			}
-			
+
 			// Append a PodDiagnosis:
+			diagnoses = append(diagnoses, PodDiagnosis{
+				PodName:       pod.Name,
+				ContainerName: containerStatus.Name,
+				Reason:        "ContainerNotReady",
+				Message:       "Container is running but not ready",
+			})
 			// Reason = "ContainerNotReady".
 		}
 
